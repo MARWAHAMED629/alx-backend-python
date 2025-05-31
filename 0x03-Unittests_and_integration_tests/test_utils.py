@@ -7,7 +7,7 @@ This module contains:
 - Unit tests for `get_json`, using patching to avoid real HTTP requests.
 - Tests for `memoize` decorator to ensure proper memoization behavior.
 
-All tests use the `unittest` framework along 
+All tests use the `unittest` framework along
 with `parameterized` and `unittest.mock`.
 """
 
