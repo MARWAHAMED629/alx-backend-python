@@ -1,13 +1,11 @@
 from rest_framework import serializers
-from .models import User, Conversation, Message
+from .models import Conversation, Message, CustomUser  # استورد CustomUser
 
-# Serializer للمستخدم
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = CustomUser
         fields = ['user_id', 'username', 'email', 'first_name', 'last_name', 'phone_number']
 
-# Serializer للرسالة
 class MessageSerializer(serializers.ModelSerializer):
     sender = UserSerializer(read_only=True)
 
@@ -15,7 +13,6 @@ class MessageSerializer(serializers.ModelSerializer):
         model = Message
         fields = ['message_id', 'conversation', 'sender', 'message_body', 'sent_at']
 
-# Serializer للمحادثة
 class ConversationSerializer(serializers.ModelSerializer):
     participants = UserSerializer(many=True, read_only=True)
     messages = MessageSerializer(many=True, read_only=True)
