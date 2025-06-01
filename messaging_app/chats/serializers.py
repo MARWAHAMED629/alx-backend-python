@@ -1,8 +1,9 @@
 from rest_framework import serializers
 from .models import CustomUser, Conversation, Message
 
-
 class UserSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(required=False)
+
     class Meta:
         model = CustomUser
         fields = ['user_id', 'username', 'first_name', 'last_name', 'email', 'phone_number']
@@ -14,6 +15,11 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ['message_id', 'sender', 'conversation', 'message_body', 'sent_at']
+
+    def validate_message_body(self, value):
+        if not value.strip():
+            raise serializers.ValidationError("Message body cannot be empty.")
+        return value
 
 
 class ConversationSerializer(serializers.ModelSerializer):
