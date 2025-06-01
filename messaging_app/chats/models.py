@@ -1,8 +1,10 @@
-from django.contrib.auth.models import AbstractUser
+import uuid
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
-# Custom user model
 class CustomUser(AbstractUser):
+    user_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    phone_number = models.CharField(max_length=20)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
     first_name = models.CharField(max_length=30)
@@ -11,20 +13,20 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.username
 
-# Conversation model
 class Conversation(models.Model):
+    conversation_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     participants = models.ManyToManyField(CustomUser, related_name='conversations')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Conversation {self.id}"
+        return str(self.conversation_id)
 
-# Message model
 class Message(models.Model):
+    message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     sender = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='messages')
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
-    content = models.TextField()
-    timestamp = models.DateTimeField(auto_now_add=True)
+    message_body = models.TextField()
+    sent_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Message from {self.sender.username} at {self.timestamp}"
+        return f"Message {self.message_id} from {self.sender.username}"
