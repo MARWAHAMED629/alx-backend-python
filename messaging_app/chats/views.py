@@ -4,6 +4,8 @@ from rest_framework.decorators import action
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from .permissions import IsParticipantOfConversation
 
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
@@ -22,8 +24,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
 
 class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
     serializer_class = MessageSerializer
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
+
+    def get_queryset(self):
+        return Message.objects.filter(
+            Q(sender=self.request.user) |
+            Q(conversation__participants=self.request.user)
+        ).distinct()
 
     def create(self, request, *args, **kwargs):
         sender = request.user
@@ -31,9 +39,17 @@ class MessageViewSet(viewsets.ModelViewSet):
         message_body = request.data.get('message_body')
 
         conversation = get_object_or_404(Conversation, pk=conversation_id)
+
+        if sender not in conversation.participants.all():
+            return Response(
+                {'error': 'You are not a participant in this conversation.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         message = Message.objects.create(
             sender=sender,
             conversation=conversation,
             message_body=message_body
         )
+
         return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
