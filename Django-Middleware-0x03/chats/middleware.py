@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 import logging
+from django.http import HttpResponseForbidden
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -25,7 +26,7 @@ class RequestLoggingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        user = request.user if request.user.is_authenticated else 'AnonymousUser'  # هنا غيرت الاسم
+        user = request.user if request.user.is_authenticated else 'AnonymousUser'
         logger.info(f"{datetime.now()} - User: {user} - Path: {request.path}")
         response = self.get_response(request)
         return response
