@@ -1,25 +1,16 @@
-import os
-from datetime import datetime
 import logging
-from django.http import HttpResponseForbidden
+from datetime import datetime
+from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-log_path = os.path.join(BASE_DIR, 'requests.log')
+BASE_DIR = Path(__file__).resolve().parent
+log_file = BASE_DIR / 'requests.log'
 
 logger = logging.getLogger('request_logger')
-logger.propagate = False
-
-handler = logging.FileHandler(log_path)
+handler = logging.FileHandler(log_file)
 formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
-
-if logger.hasHandlers():
-    logger.handlers.clear()
-
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
 
 class RequestLoggingMiddleware:
     def __init__(self, get_response):
