@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
 import logging
+from datetime import datetime
+
 from django.http import HttpResponseForbidden
 
 logger = logging.getLogger('request_logger')
@@ -45,7 +47,16 @@ class OffensiveLanguageMiddleware:
             return x_forwarded_for.split(',')[0].strip()
         return request.META.get('REMOTE_ADDR')
 
+class RestrictAccessByTimeMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
 
+    def __call__(self, request):
+        current_hour = datetime.now().hour
+        if not (18 <= current_hour < 21):
+            return HttpResponseForbidden("Access to chat is only allowed between 6 PM and 9 PM.")
+        return self.get_response(request)
+    
 class RolePermissionMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
