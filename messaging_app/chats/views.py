@@ -7,6 +7,8 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from .permissions import IsParticipantOfConversation
 from rest_framework.permissions import IsAuthenticated
+from .models import CustomUser
+from .serializers import UserSerializer
 
 class ConversationViewSet(viewsets.ModelViewSet):
     queryset = Conversation.objects.all()
@@ -54,3 +56,10 @@ class MessageViewSet(viewsets.ModelViewSet):
         )
 
         return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
+    
+
+    
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated] 
