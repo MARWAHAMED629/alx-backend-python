@@ -4,13 +4,14 @@ from datetime import datetime
 
 from django.http import HttpResponseForbidden
 
+from django.conf import settings
+
 logger = logging.getLogger('request_logger')
-handler = logging.FileHandler('requests.log')
+handler = logging.FileHandler(settings.LOG_FILE_PATH)
 formatter = logging.Formatter('%(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
 
 class RequestLoggingMiddleware:
     def __init__(self, get_response):
