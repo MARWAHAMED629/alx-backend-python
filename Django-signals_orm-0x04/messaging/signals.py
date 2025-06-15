@@ -6,6 +6,8 @@ from django.dispatch import receiver
 from .models import Message, Notification, MessageHistory
 from django.contrib.auth import get_user_model
 from django.db.models.signals import post_delete
+from django.db.models.signals import post_save
+
 class Message(models.Model):
     sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
     receiver = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
@@ -38,6 +40,14 @@ def log_message_edit(sender, instance, **kwargs):
         except Message.DoesNotExist:
             pass
 
+
+@receiver(post_save, sender=Message)
+def notify_receiver_on_new_message(sender, instance, created, **kwargs):
+    if created:
+        Notification.objects.create(
+            user=instance.receiver,
+            content=f"You have a new message from {instance.sender.username}."
+        )
 
 
 @receiver(post_delete, sender=User)
