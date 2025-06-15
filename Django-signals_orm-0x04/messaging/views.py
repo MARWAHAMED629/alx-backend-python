@@ -28,11 +28,14 @@ def conversation_detail(request, message_id):
     Use select_related and prefetch_related for query optimization.
     """
     user = request.user
-    # Filter the message to only those where the user is sender or receiver
+    # Retrieve the message only if user is sender or receiver
     message = get_object_or_404(
         Message.objects.select_related('sender', 'receiver')
         .prefetch_related(
-            Prefetch('replies', queryset=Message.objects.select_related('sender', 'receiver'))
+            Prefetch(
+                'replies',
+                queryset=Message.objects.select_related('sender', 'receiver')
+            )
         )
         .filter(Q(sender=user) | Q(receiver=user)),
         pk=message_id
@@ -41,7 +44,6 @@ def conversation_detail(request, message_id):
     def get_threaded_replies(message):
         """
         Recursively fetch all replies to a message in a threaded format.
-        Uses select_related for performance.
         """
         replies = Message.objects.filter(parent_message=message).select_related('sender', 'receiver')
         return [{
