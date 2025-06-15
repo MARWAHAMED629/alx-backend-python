@@ -3,7 +3,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
-
+from .models import Message, Notification, MessageHistory
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_delete
 class Message(models.Model):
     sender = models.ForeignKey(User, related_name='sent_messages', on_delete=models.CASCADE)
     receiver = models.ForeignKey(User, related_name='received_messages', on_delete=models.CASCADE)
@@ -35,3 +37,13 @@ def log_message_edit(sender, instance, **kwargs):
                 instance.edited = True
         except Message.DoesNotExist:
             pass
+
+
+
+@receiver(post_delete, sender=User)
+def cleanup_user_related_data(sender, instance, **kwargs):
+    Message.objects.filter(sender=instance).delete()
+    Message.objects.filter(receiver=instance).delete()
+    Notification.objects.filter(user=instance).delete()
+    MessageHistory.objects.filter(message__sender=instance).delete()
+    MessageHistory.objects.filter(message__receiver=instance).delete()
