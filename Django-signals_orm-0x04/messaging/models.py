@@ -19,12 +19,22 @@ class Message(models.Model):
     parent_message = models.ForeignKey('self', null=True, blank=True, related_name='replies', on_delete=models.CASCADE)
     
     read = models.BooleanField(default=False)
+    edited = models.BooleanField(default=False)
+    edited_at = models.DateTimeField(null=True, blank=True)
+    edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='edited_messages'
+    )
 
     objects = models.Manager()
     unread = UnreadMessagesManager()
 
     def __str__(self):
         return f"From {self.sender} to {self.receiver} at {self.timestamp}"
+
 
 class Notification(models.Model):
     user = models.ForeignKey(User, related_name='notifications', on_delete=models.CASCADE)
