@@ -1,69 +1,25 @@
-# Django-Chat/Views/views.py
-
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth import get_user_model
-from django.shortcuts import redirect, render, get_object_or_404
-from django.http import HttpResponseForbidden
-from django.db.models import Prefetch, Q
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from .models import Message
+from .serializers import MessageSerializer
+from rest_framework import viewsets, permissions
 
-User = get_user_model()
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all()
+    serializer_class = MessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-@login_required
-def delete_user(request):
-    """
-    Allow logged-in user to delete their account via POST request only.
-    """
-    if request.method == 'POST':
+    def get_queryset(self):
+        user = self.request.user
+        return Message.objects.filter(sender=user) | Message.objects.filter(receiver=user)
+
+    @action(detail=False, methods=['get'])
+    def unread(self, request):
+        """
+        Custom endpoint: /messages/unread/
+        Returns only unread messages for the logged-in user, optimized with .only()
+        """
         user = request.user
-        user.delete()
-        return redirect('login')  # Redirect to login or homepage after deletion
-    else:
-        return HttpResponseForbidden("You must submit a POST request to delete your account.")
-
-@login_required
-def conversation_detail(request, message_id):
-    """
-    Display the details of a message and its threaded replies.
-
-    Only allow access if the current user is either the sender or receiver of the message.
-    Use select_related and prefetch_related for query optimization.
-    """
-    user = request.user
-    # Filter the message to only those where the user is sender or receiver
-    message = get_object_or_404(
-        Message.objects.select_related('sender', 'receiver')
-        .prefetch_related(
-            Prefetch('replies', queryset=Message.objects.select_related('sender', 'receiver'))
-        )
-        .filter(Q(sender=user) | Q(receiver=user)),
-        pk=message_id
-    )
-
-    def get_threaded_replies(message):
-        """
-        Recursively fetch all replies to a message in a threaded format.
-        Uses select_related for performance.
-        """
-        replies = Message.objects.filter(parent_message=message).select_related('sender', 'receiver')
-        return [{
-            'message': reply,
-            'replies': get_threaded_replies(reply)
-        } for reply in replies]
-
-    threaded_replies = get_threaded_replies(message)
-
-    context = {
-        'message': message,
-        'threaded_replies': threaded_replies,
-    }
-    return render(request, 'messaging/conversation_detail.html', context)from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
-from django.views.decorators.http import require_POST
-
-
-@require_POST
-@login_required
-def delete_user(request):
-    request.user.delete()
-    return redirect("home")
+        unread_messages = Message.unread.unread_for_user(user)
+        serializer = self.get_serializer(unread_messages, many=True)
+        return Response(serializer.data)
