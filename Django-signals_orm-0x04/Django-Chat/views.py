@@ -5,21 +5,13 @@ from .serializers import MessageSerializer
 from rest_framework import viewsets, permissions
 
 class MessageViewSet(viewsets.ModelViewSet):
-    queryset = Message.objects.all()
+    queryset = Message.objects.all().order_by('-timestamp')
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        return Message.objects.filter(sender=user) | Message.objects.filter(receiver=user)
+        return Message.objects.filter(Q(sender=user) | Q(receiver=user))
 
-    @action(detail=False, methods=['get'])
-    def unread(self, request):
-        """
-        Custom endpoint: /messages/unread/
-        Returns only unread messages for the logged-in user, optimized with .only()
-        """
-        user = request.user
-        unread_messages = Message.unread.unread_for_user(user)
-        serializer = self.get_serializer(unread_messages, many=True)
-        return Response(serializer.data)
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
