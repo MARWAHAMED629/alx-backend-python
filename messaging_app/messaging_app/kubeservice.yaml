@@ -1,0 +1,71 @@
+# Kubernetes Service to manage traffic routing for Blue-Green Deployment
+# Allows dynamic switching between 'blue' and 'green' versions by updating selector labels
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-messaging-service
+  labels:
+    app: django-messaging-app
+    deployment-strategy: blue-green
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    deployment.strategy: "blue-green"
+    current.version: "blue"  # Indicates which deployment version currently receives traffic
+spec:
+  selector:
+    app: django-messaging-app
+    version: blue  # Initially routes traffic to the blue deployment pods
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8000  # Forwards to Django app container port
+  type: ClusterIP  # Internal cluster service for routing
+
+---
+# Dedicated Service for testing the green deployment version separately
+# Enables verification before switching production traffic to green
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-messaging-service-green-test
+  labels:
+    app: django-messaging-app
+    deployment-strategy: blue-green-test
+  annotations:
+    deployment.strategy: "blue-green-test"
+    purpose: "testing-green-deployment"
+spec:
+  selector:
+    app: django-messaging-app
+    version: green  # Routes traffic exclusively to green deployment pods
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
+
+---
+# Service dedicated to monitoring and health checks of the blue deployment
+# Allows isolated health checks and metrics collection for blue version pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: django-messaging-service-blue
+  labels:
+    app: django-messaging-app
+    deployment-strategy: blue-green-monitoring
+  annotations:
+    deployment.strategy: "blue-green-monitoring"
+    purpose: "monitoring-blue-deployment"
+spec:
+  selector:
+    app: django-messaging-app
+    version: blue  # Targets blue deployment pods for monitoring
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 8000
+  type: ClusterIP
