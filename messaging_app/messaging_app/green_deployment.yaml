@@ -1,0 +1,77 @@
+# Green Deployment - New version in the Blue-Green Deployment strategy
+# This deployment represents the new version running alongside the existing blue deployment
+# Note: The database is shared between blue and green deployments
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-messaging-app-green
+  labels:
+    app: django-messaging-app
+    version: green  # Label to identify pods belonging to the green deployment
+spec:
+  replicas: 3  # Number of pod replicas for this deployment
+  selector:
+    matchLabels:
+      app: django-messaging-app
+      version: green  # Select pods with this label for the deployment
+  template:
+    metadata:
+      labels:
+        app: django-messaging-app
+        version: green  # Pods will have these labels for identification
+    spec:
+      initContainers:
+      - name: wait-for-db  # Init container that waits for the database to be ready before starting the app
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z db 3306; do echo waiting for db; sleep 2; done;']
+      containers:
+      - name: django-app
+        image: messaging-app:latest  # Docker image for the app; ideally should be versioned (e.g., v2.0)
+        imagePullPolicy: Never  # Prevent pulling the image on every start (useful for local testing)
+        ports:
+        - containerPort: 8000  # Container port exposed by the app
+        env:
+        - name: DEBUG
+          value: "True"  # Enable debug mode (should be false in production)
+        - name: ALLOWED_HOSTS
+          value: "*,192.168.49.2,messaging-app.local,localhost"  # Allowed hosts for the Django app
+        - name: DB_HOST
+          value: "db"  # Hostname of the database service in the cluster
+        - name: DB_PORT
+          value: "3306"  # Database port
+        - name: MYSQL_DATABASE
+          value: "messaging_db"  # Database name
+        - name: MYSQL_USER
+          value: "messaging_user"  # Database username
+        - name: MYSQL_PASSWORD
+          value: "Icu.i4cu"  # Database user password
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"  # Root password for the database (should be secured)
+        - name: APP_VERSION
+          value: "green-v2.0"  # App version identifier for this deployment
+        - name: DEPLOYMENT_COLOR
+          value: "green"  # Deployment color label used for distinguishing environments
+        resources:
+          requests:
+            memory: "128Mi"  # Minimum memory requested
+            cpu: "100m"     # Minimum CPU requested
+          limits:
+            memory: "256Mi"  # Maximum memory allowed
+            cpu: "200m"      # Maximum CPU allowed
+        livenessProbe:
+          httpGet:
+            path: /admin/  # URL path used for liveness check
+            port: 8000
+          initialDelaySeconds: 60  # Delay before first probe after container starts
+          periodSeconds: 30        # Frequency of the probe
+          timeoutSeconds: 10       # Timeout for the probe
+          failureThreshold: 3      # Number of failures before marking pod as unhealthy
+        readinessProbe:
+          httpGet:
+            path: /admin/  # URL path used for readiness check
+            port: 8000
+          initialDelaySeconds: 30  # Delay before first probe after container starts
+          periodSeconds: 10        # Frequency of the probe
+          timeoutSeconds: 5        # Timeout for the probe
+          failureThreshold: 3      # Number of failures before marking pod as not ready

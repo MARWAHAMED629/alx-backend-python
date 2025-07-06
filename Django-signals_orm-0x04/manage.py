@@ -6,9 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'messaging_project.settings')
-=======
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'messaging_app.settings')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'messaging.settings')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -21,8 +19,4 @@ def main():
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
-    main() 
-=======
     main()
->>>>>>> 8fde76146c80cf70be23a36bdc7bb8c456fe3eed

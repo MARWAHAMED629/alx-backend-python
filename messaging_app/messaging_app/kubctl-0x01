@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# ===============================================
+# Kubernetes Deployment Scaling & Load Testing Script
+# ===============================================
+
+# Function: Check if a required CLI command is available
+check_command() {
+    command -v "$1" &> /dev/null || {
+        echo "[ERROR] '$1' not found. Please install it before proceeding."
+        exit 1
+    }
+}
+
+# Validate dependencies
+check_command kubectl
+check_command wrk
+
+# -----------------------------------------------
+# Step 1: Show current pods for the Django app
+# -----------------------------------------------
+echo "[INFO] Fetching existing pods for 'django-messaging-app'..."
+kubectl get pods -l app=django-messaging-app
+
+# -----------------------------------------------
+# Step 2: Scale the deployment to 3 replicas
+# -----------------------------------------------
+echo "[INFO] Scaling 'django-messaging-app' deployment to 3 replicas..."
+kubectl scale deployment django-messaging-app --replicas=3 || {
+    echo "[ERROR] Failed to scale deployment."
+    exit 1
+}
+
+# -----------------------------------------------
+# Step 3: Wait until all pods are ready (max 120s)
+# -----------------------------------------------
+echo "[INFO] Waiting for all 3 pods to reach 'Running' state..."
+timeout=120
+elapsed=0
+
+while [ $elapsed -lt $timeout ]; do
+    ready=$(kubectl get pods -l app=django-messaging-app --no-headers | grep "Running" | wc -l)
+    [ "$ready" -eq 3 ] && break
+    sleep 5
+    elapsed=$((elapsed + 5))
+done
+
+if [ "$ready" -ne 3 ]; then
+    echo "[ERROR] Timeout reached. Not all pods are running:"
+    kubectl get pods -l app=django-messaging-app
+    exit 1
+fi
+
+# -----------------------------------------------
+# Step 4: Confirm deployment and pod status
+# -----------------------------------------------
+echo "[INFO] Showing deployment and pod details..."
+kubectl get pods -l app=django-messaging-app -o wide
+kubectl get deployment django-messaging-app
+
+# -----------------------------------------------
+# Step 5: Load testing using wrk inside a temporary pod
+# -----------------------------------------------
+echo "[INFO] Fetching ClusterIP and port for service..."
+IP=$(kubectl get service django-messaging-service -o jsonpath='{.spec.clusterIP}')
+PORT=$(kubectl get service django-messaging-service -o jsonpath='{.spec.ports[0].port}')
+
+echo "[INFO] Running load test on http://$IP:$PORT/swagger/ ..."
+kubectl run load-test-pod --image=williamyeh/wrk --rm -i --restart=Never -- \
+    -t4 -c10 -d30s "http://$IP:$PORT/swagger/"
+
+# -----------------------------------------------
+# Step 6: Monitor resource usage
+# -----------------------------------------------
+echo "[INFO] Gathering resource usage stats..."
+if kubectl top nodes &> /dev/null; then
+    kubectl top nodes
+    kubectl top pods -l app=django-messaging-app
+else
+    echo "[WARN] 'kubectl top' not available. Showing basic pod info instead:"
+    kubectl get pods -l app=django-messaging-app -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,RESTARTS:.status.containerStatuses[0].restartCount,AGE:.metadata.creationTimestamp
+fi
+
+# -----------------------------------------------
+# Step 7: Show summary
+# -----------------------------------------------
+echo "[INFO] Deployment summary:"
+kubectl describe deployment django-messaging-app | grep -E "Replicas|Available|Ready"
+
+echo "[INFO] Endpoints and pod IPs:"
+kubectl get endpoints django-messaging-service
+kubectl get pods -l app=django-messaging-app -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,POD-IP:.status.podIP,NODE:.spec.nodeName
+
+echo "[SUCCESS] Load test completed. To scale down:"
+echo "Run: kubectl scale deployment django-messaging-app --replicas=1"

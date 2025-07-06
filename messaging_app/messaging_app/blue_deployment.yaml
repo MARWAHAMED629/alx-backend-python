@@ -1,0 +1,120 @@
+# MySQL Deployment - Stateful Database for Messaging App
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-db
+  labels:
+    app: mysql-db
+spec:
+  replicas: 1  # Single MySQL instance to avoid data conflicts
+  selector:
+    matchLabels:
+      app: mysql-db
+  template:
+    metadata:
+      labels:
+        app: mysql-db
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0  # Official MySQL 8.0 image
+        ports:
+        - containerPort: 3306  # MySQL default port
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"  # Root password for MySQL (consider securing in production)
+        - name: MYSQL_DATABASE
+          value: "messaging_db"  # Initial database created
+        - name: MYSQL_USER
+          value: "messaging_user"  # User with access to the database
+        - name: MYSQL_PASSWORD
+          value: "Icu.i4cu"  # Password for the MySQL user
+        resources:
+          requests:
+            memory: "512Mi"  # Minimum memory requested for container
+            cpu: "250m"      # Minimum CPU requested
+          limits:
+            memory: "1Gi"    # Maximum memory allowed
+            cpu: "500m"      # Maximum CPU allowed
+        volumeMounts:
+        - name: mysql-storage
+          mountPath: /var/lib/mysql  # Persistent storage mount point for MySQL data
+      volumes:
+      - name: mysql-storage
+        emptyDir: {}  # Temporary storage (non-persistent; use PersistentVolumeClaim for production)
+---
+# MySQL Service - Exposes MySQL Deployment Internally
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  labels:
+    app: mysql-db
+spec:
+  selector:
+    app: mysql-db  # Selects pods with this label to route traffic
+  ports:
+  - port: 3306          # Service port exposed inside cluster
+    targetPort: 3306    # Container port to forward to
+  type: ClusterIP       # Internal cluster-only service
+---
+# Blue Deployment - Initial Version of Django Messaging App
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-messaging-app-blue
+  labels:
+    app: django-messaging-app
+    version: blue  # Identifier label for blue deployment
+spec:
+  replicas: 3  # Number of replicas for load balancing and availability
+  strategy:
+    type: RollingUpdate  # Deployment update strategy for zero downtime
+    rollingUpdate:
+      maxUnavailable: 1  # Max pods unavailable during update
+      maxSurge: 1        # Max pods created above desired count during update
+  selector:
+    matchLabels:
+      app: django-messaging-app
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: django-messaging-app
+        version: blue
+    spec:
+      initContainers:
+      - name: wait-for-db  # Wait for MySQL to be ready before starting app
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z db 3306; do echo waiting for db; sleep 2; done;']
+      containers:
+      - name: django-app
+        image: messaging-app:2.0  # Docker image for the Django app version 2.0
+        imagePullPolicy: Never  # Do not pull image; useful for local builds/testing
+        ports:
+        - containerPort: 8000  # Application listening port
+        env:
+        - name: DEBUG
+          value: "True"  # Enable debug mode (should be false in production)
+        - name: ALLOWED_HOSTS
+          value: "localhost,127.0.0.1,192.168.49.2,messaging-app.local,api.messaging-app.local,django-messaging-service"
+        - name: DB_HOST
+          value: "db"  # MySQL service hostname
+        - name: DB_PORT
+          value: "3306"
+        - name: MYSQL_DATABASE
+          value: "messaging_db"
+        - name: MYSQL_USER
+          value: "messaging_user"
+        - name: MYSQL_PASSWORD
+          value: "Icu.i4cu"
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+# Note: Service routing for blue-green deployment is managed separately by kubeservice.yaml

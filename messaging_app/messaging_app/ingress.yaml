@@ -1,0 +1,81 @@
+# ===============================================
+# Ingress Configuration for Django Messaging App
+# ===============================================
+# This Ingress exposes the Django application via NGINX Ingress controller.
+# It defines routing rules for paths such as /, /api, /admin, /swagger.
+# CORS is enabled to allow external frontend access.
+# SSL redirection is disabled for development/testing environments.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: django-messaging-ingress
+  labels:
+    app: django-messaging-app
+  annotations:
+    # Disable HTTPS redirection (useful for local/dev environments)
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+
+    # Enable Cross-Origin Resource Sharing (CORS) for frontend clients
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+
+spec:
+  # Use the NGINX ingress controller
+  ingressClassName: nginx
+
+  # Routing rules section
+  rules:
+    # Rule 1: For custom domain access (messaging-app.local)
+    - host: messaging-app.local
+      http:
+        paths:
+          # Route all paths to the Django backend
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: django-messaging-service
+                port:
+                  number: 80
+
+          # Route for Django API endpoints
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: django-messaging-service
+                port:
+                  number: 80
+
+          # Route for Django admin panel
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: django-messaging-service
+                port:
+                  number: 80
+
+          # Route for API documentation (e.g., Swagger)
+          - path: /swagger
+            pathType: Prefix
+            backend:
+              service:
+                name: django-messaging-service
+                port:
+                  number: 80
+
+    # Rule 2: Default rule for IP-based access (e.g., via Minikube IP)
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: django-messaging-service
+                port:
+                  number: 80

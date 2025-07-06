@@ -1,0 +1,4 @@
+INFO:chats.middleware:2025-06-08 19:34:21.597349 - User: Anonymous - Path: /
+WARNING:django.request:Not Found: /
+INFO:chats.middleware:2025-06-08 19:34:44.933296 - User: Anonymous - Path: /admin/
+INFO:chats.middleware:2025-06-08 19:34:44.964454 - User: Anonymous - Path: /admin/login/
